@@ -1,9 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Equal, LessThan, MoreThan, Repository } from 'typeorm';
-import { CreateHourControlDto } from './dto/create-hour-control.dto';
-import { UpdateHourControlDto } from './dto/update-hour-control.dto';
+import {
+  And,
+  Between,
+  Equal,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Raw,
+  Repository,
+} from 'typeorm';
 import { HourControl } from './entities/hour-control.entity';
+import * as datefns from 'date-fns';
 
 @Injectable()
 export class HourControlService {
@@ -13,86 +20,62 @@ export class HourControlService {
   ) {}
 
   public async getAllByUser(userId: number) {
-    return await this.hourControlRepository.find({ where: { user: { id: userId } } });
+    return await this.hourControlRepository.find({
+      where: { user: { id: userId } },
+    });
   }
 
   public async getOne(id: number) {
     return await this.hourControlRepository.findOneOrFail({ where: { id } });
   }
 
-  public async start(userId: number) {
-    const today = this.getTodayDate();
+  public async startOrEnd(userId: number) {
+    let control: HourControl;
 
     if (
       await this.hourControlRepository.exist({
-        where: { user: { id: userId }, startDate: Equal(today.utcString) },
+        where: { humanDate: Equal(new Date().toISOString().split('T')[0]) },
       })
     ) {
-      throw new Error('User has already started today');
-    }
-
-    const control: HourControl = this.hourControlRepository.create({
-      user: { id: userId },
-      startDate: today.utcString,
-      startHour: today.fullHour,
-    });
-
-    return await this.hourControlRepository.save(control);
-  }
-
-  public async finish(userId: number) {
-    const today = this.getTodayDate();
-    const control: HourControl = await this.hourControlRepository.findOneOrFail({
-      where: { user: { id: userId }, startDate: Equal(today.utcString) },
-    });
-
-    if (control.finish) {
-      throw new Error('The user has already finished today');
-    }
-
-    control.finish = today.fullDate;
-    return await this.hourControlRepository.save(control);
-  }
-
-  public async pause(userId: number) {
-    const today = this.getTodayDate();
-
-    const control: HourControl = await this.hourControlRepository.findOneOrFail({
-      where: { user: { id: userId }, startDate: Equal(today.utcString) },
-    });
-
-    if (control.isPaused) {
-      control.isPaused = 0;
-      if (!control.pauseStart) {
-        throw new Error('Pause had not been stored properly');
+      control = await this.hourControlRepository.findOne({
+        where: { humanDate: Equal(new Date().toISOString().split('T')[0]) },
+      });
+      if (control.ended) {
+        control.lastStart = new Date().getTime();
+        control.ended = 0;
+        return this.hourControlRepository.save(control);
       }
-      const pauseTime = today.millisendsDate - control.pauseStart;
-      control.pause += pauseTime;
-      control.pauseStart = 0;
+      control.end = new Date().getTime();
+      control.ended = 1;
+      return this.hourControlRepository.save(control);
     } else {
-      control.isPaused = 1;
-      control.pauseStart = today.millisendsDate;
+      control = this.hourControlRepository.create({
+        user: { id: userId },
+        start: new Date().getTime(),
+        lastStart: new Date().getTime(),
+      });
+      return this.hourControlRepository.save(control);
     }
-
-    return await this.hourControlRepository.save(control);
   }
 
   public async getAllUserHourControlByDate(
     userId: number,
     startDate: string,
-    endDate: string
+    endDate?: string,
   ) {
-    const sdt: number[] = startDate.split('-').map(Number);
-    const edt: number[] = endDate.split('-').map(Number);
-
     const hourControls: HourControl[] = await this.hourControlRepository.find({
       where: {
         user: {
           id: userId,
         },
-        startYear: MoreThan(sdt[0]) && LessThan(edt[0]),
-        startMonth: MoreThan(sdt[1]) && LessThan(edt[1]),
-        startDay: MoreThan(sdt[2]) && LessThan(edt[2]),
+        start: Raw(
+          (s) =>
+            `${s} >= ${new Date(
+              startDate + 'T00:00:00',
+            ).getTime()} AND ${s} <= ${new Date(
+              endDate + 'T23:59:59',
+            ).getTime()}`,
+        ),
       },
     });
 
@@ -120,5 +103,18 @@ export class HourControlService {
       fullDate: `${year}-${month}-${day}T${hour}:${minutes}:${seconds}`,
       millisendsDate,
     };
+  }
+
+  private parseDateSub(date: string | number) {
+    if (typeof date === 'number') {
+      const d = new Date(date);
+      date = `${d.getFullYear()}-${d.getMonth()}-${d.getDay()}`;
+    } else {
+      if (date.includes('T')) {
+        date = date.split('T')[0];
+      }
+    }
+
+    return new Date(date).getTime();
   }
 }
