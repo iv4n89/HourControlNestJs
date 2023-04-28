@@ -1,0 +1,10 @@
+{
+    "configurations": [
+        {
+            "name": "Debug NextJs",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run dev"
+        }
+    ]
+}

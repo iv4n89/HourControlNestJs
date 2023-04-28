@@ -1,16 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
-  And,
-  Between,
-  Equal,
-  LessThanOrEqual,
-  MoreThanOrEqual,
-  Raw,
-  Repository,
+  Equal, Raw,
+  Repository
 } from 'typeorm';
 import { HourControl } from './entities/hour-control.entity';
-import * as datefns from 'date-fns';
 
 @Injectable()
 export class HourControlService {

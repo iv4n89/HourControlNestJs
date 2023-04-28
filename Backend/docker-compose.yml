@@ -1,29 +1,17 @@
+
 version: '3.7'
 
 services:
   backend:
     build: 
-      context: ./Backend
+      context: .
       target: development
     volumes:
       - ./:/usr/src/app
     command: tail -f /dev/null
     container_name: backend
-    expose:
-      - 3000
-    networks:
-      - hour-control
-
-  frontend:
-    build: 
-      context: ./Frontend
-      target: development
-    volumes:
-      - ./:/usr/src/app
-    command: tail -f /dev/null
-    container_name: frontend
-    expose:
-      - 3000
+    ports:
+      - 3000:3000
     networks:
       - hour-control
 
@@ -35,10 +23,9 @@ services:
       - 80:80
     depends_on:
       - backend
-      - frontend
-    container_name: nginx
     networks:
       - hour-control
 
 networks:
   hour-control:
+    driver: bridge

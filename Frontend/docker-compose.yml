@@ -1,0 +1,29 @@
+
+version: '3.7'
+
+services:
+  frontend:
+    build: 
+      context: .
+      target: development
+    volumes:
+      - ./:/usr/src/app
+    command: tail -f /dev/null
+    container_name: frontend
+    networks:
+      - frontend_hour-control
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - 81:80
+    depends_on:
+      - frontend
+    networks:
+      - frontend_hour-control
+
+networks:
+  frontend_hour-control:
+    driver: bridge

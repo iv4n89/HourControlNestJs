@@ -17,6 +17,14 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
+  async login(createUserDto: CreateUserDto) {
+    if (await this.userRepository.exist({ where: { username: createUserDto.username } })) {
+      return this.userRepository.findOne({ where: { username: createUserDto.username } });
+    }
+
+    return this.create(createUserDto);
+  }
+
   findAll() {
     return this.userRepository.find();
   }
